@@ -1,0 +1,32 @@
+---
+- name: Create ServiceNow Change Request for CVE Patching
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    snow_short_description: "AO-CVE-Pipeline"
+    snow_assignment_group: "Conditional Script Writer"
+    snow_change_type: "normal"
+    snow_category: "Server Reboot"
+
+  tasks:
+    - name: Validate patch_advisories is provided
+      ansible.builtin.fail:
+        msg: "patch_advisories extra_var is required and must not be empty."
+      when: patch_advisories is not defined or patch_advisories | length == 0
+
+    - name: Create change request with advisory work notes
+      servicenow.itsm.change_request:
+        state: new
+        short_description: "{{ snow_short_description }}"
+        assignment_group: "{{ snow_assignment_group }}"
+        change_type: "{{ snow_change_type }}"
+        category: "{{ snow_category }}"
+        other:
+          work_notes: "{{ patch_advisories | join('\n') }}"
+      register: created_cr
+
+    - name: Display created Change Request number
+      ansible.builtin.debug:
+        msg: "Created Change Request: {{ created_cr.record.number }}"

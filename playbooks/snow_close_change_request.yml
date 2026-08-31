@@ -33,3 +33,7 @@
         number: "{{ change_request_number }}"
         close_code: "successful"
         close_notes: "Change request closed successfully by AO-CVE-Pipeline automation."
+
+    - name: Confirm Change Request closed
+      ansible.builtin.debug:
+        msg: "Successfully closed Change Request: {{ change_request_number }}"

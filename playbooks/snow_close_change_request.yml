@@ -1,0 +1,35 @@
+---
+- name: Close ServiceNow Change Request (implement state only)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Validate change_request_number is provided
+      ansible.builtin.fail:
+        msg: "change_request_number extra_var is required (e.g. CHG0012345)."
+      when: change_request_number is not defined or change_request_number | length == 0
+
+    - name: Fetch Change Request details
+      servicenow.itsm.change_request_info:
+        number: "{{ change_request_number }}"
+      register: cr_info
+
+    - name: Fail if no matching CR found
+      ansible.builtin.fail:
+        msg: "No Change Request found with number {{ change_request_number }}."
+      when: cr_info.records | length == 0
+
+    - name: Fail if CR is not in implement state
+      ansible.builtin.fail:
+        msg: >-
+          CR {{ change_request_number }} is currently in '{{ cr_info.records[0].state }}' state.
+          Automation will only close CRs in 'implement' state. Take no action.
+      when: cr_info.records[0].state != "implement"
+
+    - name: Close Change Request
+      servicenow.itsm.change_request:
+        state: closed
+        number: "{{ change_request_number }}"
+        close_code: "successful"
+        close_notes: "Change request closed successfully by AO-CVE-Pipeline automation."

@@ -1,0 +1,78 @@
+---
+- name: Create or Update CMDB CI for provisioned VM and raise Change Request
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    snow_ci_class: "cmdb_ci_linux_server"
+    snow_assignment_group: "Conditional Script Writer"
+
+  tasks:
+    - name: Validate required extra_vars
+      ansible.builtin.fail:
+        msg: "Required variable '{{ item }}' is not defined or empty."
+      when: vars[item] is not defined or vars[item] | string | length == 0
+      loop:
+        - vm_name
+        - vm_ip
+        - os_version
+        - cpu_cores
+        - vm_memory
+
+    - name: Check if CMDB CI already exists for this VM
+      servicenow.itsm.configuration_item_info:
+        query:
+          - name: = {{ vm_name }}
+            sys_class_name: = {{ snow_ci_class }}
+      register: existing_ci
+
+    - name: Create CMDB CI if it does not exist
+      servicenow.itsm.configuration_item:
+        name: "{{ vm_name }}"
+        sys_class_name: "{{ snow_ci_class }}"
+        ip_address: "{{ vm_ip }}"
+        os: "{{ os_version }}"
+        other:
+          cpu_count: "{{ cpu_cores }}"
+          ram: "{{ vm_memory }}"
+          short_description: "KubeVirt VM provisioned via Terraform on OpenShift"
+      register: created_ci
+      when: existing_ci.records | length == 0
+
+    - name: Set CI sys_id and action facts
+      ansible.builtin.set_fact:
+        ci_sys_id: >-
+          {{ existing_ci.records[0].sys_id
+             if existing_ci.records | length > 0
+             else created_ci.record.sys_id }}
+        ci_action: "{{ 'existing' if existing_ci.records | length > 0 else 'created' }}"
+
+    - name: Create Change Request for CMDB update
+      servicenow.itsm.change_request:
+        state: new
+        short_description: "CMDB update for VM {{ vm_name }}"
+        description: >-
+          {{ ci_action | capitalize }} CMDB CI for virtual machine {{ vm_name }}.
+          IP: {{ vm_ip }} | OS: {{ os_version }} | CPU: {{ cpu_cores }} cores | Memory: {{ vm_memory }}
+        assignment_group: "{{ snow_assignment_group }}"
+        change_type: "standard"
+        category: "Software"
+        other:
+          cmdb_ci: "{{ ci_sys_id }}"
+          work_notes: |
+            VM Details:
+            - Name: {{ vm_name }}
+            - IP Address: {{ vm_ip }}
+            - OS: {{ os_version }}
+            - CPU Cores: {{ cpu_cores }}
+            - Memory: {{ vm_memory }}
+            - Namespace: {{ namespace | default('N/A') }}
+            - CMDB CI Status: {{ ci_action }}
+      register: created_cr
+
+    - name: Display results
+      ansible.builtin.debug:
+        msg:
+          - "CMDB CI: {{ ci_action }} (sys_id: {{ ci_sys_id }})"
+          - "Change Request: {{ created_cr.record.number }}"

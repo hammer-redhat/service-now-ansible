@@ -19,6 +19,7 @@
         - os_version
         - cpu_cores
         - vm_memory
+        - cpu_model
 
     - name: Check if CMDB CI already exists for this VM
       servicenow.itsm.configuration_item_info:
@@ -33,9 +34,14 @@
         sys_class_name: "{{ snow_ci_class }}"
         ip_address: "{{ vm_ip }}"
         other:
+          host_name: "{{ vm_name }}"
+          os_version: "{{ os_version }}"
           cpu_count: "{{ cpu_cores }}"
-          ram: "{{ vm_memory }}"
-          os: "{{ os_version }}"
+          cpu_core_count: "{{ cpu_cores }}"
+          cpu_type: "{{ cpu_model }}"
+          cpu_manufacturer: "Intel"
+          ram: "{{ (vm_memory | regex_replace('Gi$', '') | int * 1024) }}"
+          virtual: true
           short_description: "KubeVirt VM provisioned via Terraform on OpenShift"
       register: created_ci
       when: existing_ci.records | length == 0

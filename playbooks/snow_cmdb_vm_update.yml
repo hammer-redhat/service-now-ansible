@@ -32,10 +32,10 @@
         name: "{{ vm_name }}"
         sys_class_name: "{{ snow_ci_class }}"
         ip_address: "{{ vm_ip }}"
-        os: "{{ os_version }}"
         other:
           cpu_count: "{{ cpu_cores }}"
           ram: "{{ vm_memory }}"
+          os: "{{ os_version }}"
           short_description: "KubeVirt VM provisioned via Terraform on OpenShift"
       register: created_ci
       when: existing_ci.records | length == 0

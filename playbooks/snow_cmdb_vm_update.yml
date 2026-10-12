@@ -56,7 +56,7 @@
           {{ ci_action | capitalize }} CMDB CI for virtual machine {{ vm_name }}.
           IP: {{ vm_ip }} | OS: {{ os_version }} | CPU: {{ cpu_cores }} cores | Memory: {{ vm_memory }}
         assignment_group: "{{ snow_assignment_group }}"
-        change_type: "standard"
+        type: "standard"
         category: "Software"
         other:
           cmdb_ci: "{{ ci_sys_id }}"

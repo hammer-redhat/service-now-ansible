@@ -28,8 +28,14 @@
             sys_class_name: = {{ snow_ci_class }}
       register: existing_ci
 
-    - name: Create CMDB CI if it does not exist
+    - name: Set CI action fact
+      ansible.builtin.set_fact:
+        ci_action: "{{ 'updated' if existing_ci.records | length > 0 else 'created' }}"
+        ci_sys_id_existing: "{{ existing_ci.records[0].sys_id if existing_ci.records | length > 0 else '' }}"
+
+    - name: Create or update CMDB CI
       servicenow.itsm.configuration_item:
+        sys_id: "{{ ci_sys_id_existing if ci_sys_id_existing else omit }}"
         name: "{{ vm_name }}"
         sys_class_name: "{{ snow_ci_class }}"
         ip_address: "{{ vm_ip }}"
@@ -39,20 +45,14 @@
           cpu_count: "{{ cpu_cores }}"
           cpu_core_count: "{{ cpu_cores }}"
           cpu_type: "{{ cpu_model }}"
-          cpu_manufacturer: "Intel"
           ram: "{{ (vm_memory | regex_replace('Gi$', '') | int * 1024) }}"
           virtual: true
           short_description: "KubeVirt VM provisioned via Terraform on OpenShift"
-      register: created_ci
-      when: existing_ci.records | length == 0
+      register: upserted_ci
 
-    - name: Set CI sys_id and action facts
+    - name: Set CI sys_id fact
       ansible.builtin.set_fact:
-        ci_sys_id: >-
-          {{ existing_ci.records[0].sys_id
-             if existing_ci.records | length > 0
-             else created_ci.record.sys_id }}
-        ci_action: "{{ 'existing' if existing_ci.records | length > 0 else 'created' }}"
+        ci_sys_id: "{{ upserted_ci.record.sys_id }}"
 
     - name: Create Change Request for CMDB update
       servicenow.itsm.change_request:

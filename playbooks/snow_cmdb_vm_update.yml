@@ -71,6 +71,13 @@
             - CMDB CI Status: {{ ci_action }}
       register: created_cr
 
+    - name: Publish job artifacts for downstream steps
+      ansible.builtin.set_stats:
+        data:
+          cr_number: "{{ created_cr.record.number }}"
+          ci_sys_id: "{{ ci_sys_id }}"
+          ci_action: "{{ ci_action }}"
+
     - name: Display results
       ansible.builtin.debug:
         msg:
